@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link href="/iframe/css/layui.css" rel="stylesheet" />
+		<link href="/iframe/css/BPT_PCB.css" rel="stylesheet" />
+		<style>
+			@font-face {
+				font-family: 'layui-icon'; /* 固定字体名，和 Layui 保持一致 */
+				src: url('/iframe/font/iconfont.ttf') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+
+			/* Layui 图标核心样式（必须） */
+			.layui-icon {
+				font-family: 'layui-icon' !important;
+				font-size: 16px; /* 图标大小 */
+				font-style: normal;
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+			}
+		</style>
+		<script src="/iframe/js/layui.js"></script>
+		<title>批量拾件工具 - 原理图版（支持器件类型识别）</title>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<div class="margin-top-left">
+					<button class="layui-btn layui-btn-sm" id="btn-OK">确定选择</button>
+				</div>
+				<div class="title">批量拾件工具 (原理图)</div>
+
+				<div class="margin-top-right">
+					<button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-refresh">刷新数据</button>
+				</div>
+			</div>
+		</div>
+		<div class="tables">
+			<div id="loading" style="text-align: center; padding: 20px; font-size: 14px; color: #666">正在加载原理图器件数据...</div>
+			<table class="layui-hide" id="ID-table-demo-templet"></table>
+		</div>
+
+		<script>
+			// 器件类型映射表（适配原理图器件命名规范）
+			const componentTypeMap = {
+				'R': '电阻',
+				'RN': '排阻',
+				'RT': '热敏电阻',
+				'RV': '压敏电阻',
+				'RX': '熔断电阻/保险电阻',
+				'C': '电容',
+				'CP': '贴片电容/功率电容',
+				'CN': '连接器/接插件',
+				'CBB': '金属化聚丙烯电容',
+				'CL': '电感电容组合/叠层电容',
+				'L': '电感',
+				'LN': '排感/电感阵列',
+				'FB': '磁珠',
+				'FBL': '磁珠阵列',
+				'X': '晶振',
+				'Y': '陶瓷谐振器',
+				'XTAL': '晶体振荡器',
+				'OSC': '有源晶振',
+
+				'D': '二极管',
+				'ZD': '稳压二极管',
+				'LED': '发光二极管',
+				'TVS': '瞬态抑制二极管',
+				'ESD': 'ESD保护二极管/静电保护管',
+				'SCH': '肖特基二极管',
+				'FRD': '快恢复二极管',
+				'PD': '光电二极管',
+
+				'Q': '三极管/场效应管',
+				'MOS': '场效应管',
+				'BJT': '双极型三极管',
+				'V': '晶闸管/可控硅',
+				'SCR': '单向可控硅',
+				'TRIAC': '双向可控硅',
+
+				'U': '集成电路/芯片',
+				'IC': '集成电路',
+				'MCU': '微控制器',
+				'DSP': '数字信号处理器',
+				'FPGA': '现场可编程门阵列',
+				'ROM': '只读存储器',
+				'RAM': '随机存储器',
+				'FLASH': '闪存芯片',
+
+				'J': '排针/连接器/插座',
+				'JP': '跳线帽/跳线座',
+				'PIN': '插针/单针连接器',
+				'CON': '连接器',
+				'DB': 'DB型连接器',
+				'USB': 'USB连接器',
+				'HDMI': 'HDMI连接器',
+				'RJ': '网络接口/电话接口',
+				'DC': '直流电源接口',
+				'AC': '交流电源接口',
+
+				'F': '保险丝',
+				'FUSE': '保险丝',
+				'TF': '温度保险丝',
+				'PTC': '自恢复保险丝',
+				'NTC': '负温度系数热敏电阻',
+				'MOV': '压敏电阻',
+
+				'T': '变压器',
+				'T1': '电源变压器',
+				'PT': '脉冲变压器',
+				'CT': '电流互感器',
+				'VT': '电压互感器',
+				'K': '继电器',
+				'RELAY': '继电器',
+				'SW': '开关',
+				'KEY': '按键/轻触开关',
+				'KBD': '键盘接口/按键阵列',
+				'H': '蜂鸣器/指示灯',
+				'BUZ': '蜂鸣器',
+				'SPEAKER': '喇叭/扬声器',
+				'MIC': '麦克风/拾音器',
+				'LCD': '液晶显示屏',
+				'OLED': '有机发光显示屏',
+
+				'TP': '测试点',
+				'TEST': '测试点',
+				'GND': '接地端/地线',
+				'VCC': '电源正极',
+				'VDD': '芯片电源正极',
+				'VEE': '负电源端',
+				'VSS': '芯片地',
+				'NC': '空脚',
+				'NETFLAG': '网络标签',
+				'NETPORT': '端口',
+				'sheet': '工作表',
+				'SCREW': '螺丝钉',
+			};
+
+			// 提前构建大写键的映射表（优化性能，避免每次遍历）
+			const componentTypeMapUpper = {};
+			for (const [key, value] of Object.entries(componentTypeMap)) {
+				componentTypeMapUpper[key.toUpperCase()] = value;
+			}
+
+			// 全局变量
+			let allComponentData = [];
+			let tableIns = null;
+
+			// 获取器件类型（原理图适配版，忽略大小写）
+			function getComponentType(params) {
+				if (!params) return '未知类型';
+				// 1. 去掉位号中的数字、下划线、短横线
+				const textWithoutNumbers = params.replace(/[0-9_\-]/g, '');
+				// 2. 统一转为大写，实现忽略大小写匹配
+				const targetKey = textWithoutNumbers.toUpperCase();
+				// 3. 从大写映射表中快速匹配
+				return componentTypeMapUpper[targetKey] || '未知类型';
+			}
+
+			// 加载原理图器件数据（核心API适配）
+			async function loadSCHComponents() {
+				try {
+					// 原理图器件获取API：eda.sch_PrimitiveComponent.getAll()
+					if (!window.eda || !eda.sch_PrimitiveComponent) {
+						document.getElementById('loading').innerText = '错误：未检测到EDA环境，无法获取原理图器件数据！';
+						return;
+					}
+
+					document.getElementById('loading').innerText = '正在加载原理图器件数据...';
+					// 原理图无图层概念，直接获取所有器件
+					const schData = await eda.sch_PrimitiveComponent.getAll(false);
+					console.log('原理图数据加载完成：', schData);
+
+					allComponentData = schData.map((component) => ({
+						...component,
+						// 补充原理图特有属性
+						sheetName: component.sheetName || '主图', // 子图名称
+						netName: component.otherProperty?.NetName || '-', // 所属网络
+					}));
+
+					const totalCount = allComponentData.length;
+					console.log(`✅ 加载完成：总计${totalCount}个原理图器件`);
+
+					renderTable(allComponentData);
+				} catch (error) {
+					document.getElementById('loading').innerText = `加载失败：${error.message}`;
+					console.error('❌ 原理图数据加载失败：', error);
+				}
+			}
+
+			// 渲染表格（适配原理图数据字段）
+			function renderTable(data) {
+				const tableData = data.map((component) => {
+					const componentType = getComponentType(component.designator || component.componentType);
+					return {
+						primitiveId: component.primitiveId || '未知ID', // 唯一图元ID（核心参数）
+						designator: component.designator || component.net, // 器件位号
+						componentType: componentType, // 器件类型
+						sheetName: component.sheet || '-', // 所在子图
+						netName: component.netName || '-', // 所属网络
+						value: component.otherProperty?.Value || component.otherProperty?.Device || '-', // 参数值
+						manufacturer: component.manufacturer || '-', // 厂商
+						manufacturerId: component.manufacturerId || '-', // 厂商ID
+						supplier: component.supplier || '-', // 供应商
+						supplierId: component.supplierId || '-', // 供应商ID
+					};
+				});
+
+				layui.use(['table', 'form'], function () {
+					var table = layui.table;
+					var form = layui.form;
+
+					document.getElementById('loading').style.display = 'none';
+
+					if (tableIns) {
+						tableIns.reload({ data: tableData });
+					} else {
+						tableIns = table.render({
+							elem: '#ID-table-demo-templet',
+							data: tableData,
+							page: true,
+							limit: 100,
+							limits: [10, 20, 50, 100],
+							height: '620px',
+							skin: 'line',
+							cols: [
+								[
+									{ type: 'checkbox', fixed: 'left' },
+									{ field: 'primitiveId', fixed: 'left', width: 100, title: '图元ID', sort: true },
+									{ field: 'designator', fixed: 'left', width: 100, title: '器件位号', sort: true },
+									{ field: 'componentType', width: 120, title: '器件类型', sort: true },
+									{ field: 'sheetName', width: 120, title: '所在子图', sort: true },
+									{ field: 'netName', width: 150, title: '所属网络', sort: true },
+									{ field: 'value', width: 120, title: '参数值', sort: true },
+									{ field: 'manufacturer', width: 120, title: '制造商', sort: true },
+									{ field: 'manufacturerId', width: 150, title: '制造商编号', sort: true },
+									{ field: 'supplier', width: 120, title: '供应商', sort: true },
+									{ field: 'supplierId', width: 150, title: '供应商编号', sort: true },
+								],
+							],
+							text: {
+								none: '暂无原理图器件数据',
+							},
+						});
+					}
+				});
+			}
+
+			function selectCheckedComponents() {
+				eda.sch_SelectControl.clearSelected();
+				layui.use(['table', 'layer'], function (table, layer) {
+					const checkStatus = table.checkStatus('ID-table-demo-templet');
+					const selectedData = checkStatus.data;
+
+					if (selectedData.length === 0) {
+						layer.msg('请先勾选需要选择的元器件！', { icon: 2, time: 2000 });
+						return;
+					}
+
+					if (!window.eda || !eda.sch_SelectControl || !eda.sch_SelectControl.doSelectPrimitives) {
+						layer.msg('EDA原理图选择API未加载完成，请检查环境！', { icon: 2, time: 3000 });
+						return;
+					}
+
+					try {
+						selectedData.forEach((item, index) => {
+							if (item.primitiveId && item.primitiveId !== '未知ID') {
+								eda.sch_SelectControl.doSelectPrimitives(item.primitiveId);
+								console.log(`已选中原理图器件：ID=${item.primitiveId}，位号=${item.designator}`);
+							} else {
+								console.warn(`跳过无效ID的原理图器件：位号=${item.designator}`);
+							}
+						});
+
+						layer.msg(`成功选中 ${selectedData.length} 个原理图器件！`, { icon: 1, time: 1000 });
+						eda.sys_Timer.setTimeoutTimer(
+							'1',
+							1000,
+							() => {
+								eda.sys_IFrame.closeIFrame();
+							},
+							undefined,
+						);
+					} catch (error) {
+						console.error('选中原理图器件失败：', error);
+						layer.msg(`选中失败：${error.message}`, { icon: 2, time: 3000 });
+					}
+				});
+			}
+
+			function bindButtonEvents() {
+				layui.use(['jquery'], function ($) {
+					$('#btn-OK').click(selectCheckedComponents);
+					$('#btn-refresh').click(function () {
+						document.getElementById('loading').style.display = 'block';
+						document.getElementById('loading').innerText = '正在刷新原理图器件数据...';
+						setTimeout(loadSCHComponents, 300);
+					});
+				});
+			}
+
+			// 页面加载执行
+			window.onload = function () {
+				// 延迟加载，确保EDA环境初始化完成
+				setTimeout(() => {
+					loadSCHComponents();
+					bindButtonEvents();
+				}, 800);
+			};
+		</script>
+	</body>
+</html>

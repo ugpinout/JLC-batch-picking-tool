@@ -1,0 +1,44 @@
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	font-family: 'Microsoft Yahei', Arial, sans-serif;
+	font-size: 14px;
+	color: #333;
+}
+body {
+	background-color: #f5f7fa;
+	padding: 10px;
+	height: 100vh;
+	overflow: hidden;
+}
+/* 容器布局 */
+.container {
+	display: grid;
+	grid-template-columns: 280px 1fr;
+	grid-template-rows: 50px 1fr 10px;
+	grid-template-areas:
+		'header header'
+		'sidebar main'
+		'footer footer';
+	/* gap: 10px; */
+	/* height: 100%; */
+}
+/* 顶部操作栏 */
+.header {
+	grid-area: header;
+	background-color: #fff;
+	border-radius: 6px;
+	padding: 0 15px;
+	display: flex;
+	align-items: center;
+	text-align: center;
+	justify-content: space-between;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.header .title {
+	font-size: 18px;
+	font-weight: 600;
+	color: #2f5496; /*嘉立创主色调*/
+	text-align: center;
+}

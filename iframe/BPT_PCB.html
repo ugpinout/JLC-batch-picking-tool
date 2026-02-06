@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link href="/iframe/css/layui.css" rel="stylesheet" />
+		<link href="/iframe/css/BPT_PCB.css" rel="stylesheet" />
+		<style>
+			@font-face {
+				font-family: 'layui-icon'; /* 固定字体名，和 Layui 保持一致 */
+				/* 关键：ttf 文件路径（根据实际文件位置调整） */
+				src: url('/iframe/font/iconfont.ttf') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+
+			/* 2. Layui 图标核心样式（必须） */
+			.layui-icon {
+				font-family: 'layui-icon' !important;
+				font-size: 16px; /* 图标大小 */
+				font-style: normal;
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+			}
+		</style>
+		<script src="/iframe/js/layui.js"></script>
+		<title>批量拾件工具 - PCB版（支持器件类型识别）</title>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<div class="margin-top-left">
+					<button class="layui-btn layui-btn-sm" id="btn-OK">确定选择</button>
+				</div>
+				<div class="title">批量拾件工具 (PCB)</div>
+
+				<div class="margin-top-right">
+					<button class="layui-btn layui-btn-sm" id="btn-all">全部图层</button>
+					<button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-top">仅顶层</button>
+					<button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-bottom">仅底层</button>
+				</div>
+			</div>
+		</div>
+		<div class="tables">
+			<div id="loading" style="text-align: center; padding: 20px; font-size: 14px; color: #666">正在加载PCB器件数据...</div>
+			<table class="layui-hide" id="ID-table-demo-templet"></table>
+		</div>
+
+		<script>
+			const componentTypeMap = {
+				'R': '电阻',
+				'RN': '排阻',
+				'RT': '热敏电阻',
+				'RV': '压敏电阻',
+				'RX': '熔断电阻/保险电阻',
+				'C': '电容',
+				'CP': '贴片电容/功率电容',
+				'CN': '连接器/接插件',
+				'CBB': '金属化聚丙烯电容',
+				'CL': '电感电容组合/叠层电容',
+				'L': '电感',
+				'LN': '排感/电感阵列',
+				'FB': '磁珠',
+				'FBL': '磁珠阵列',
+				'X': '晶振',
+				'Y': '陶瓷谐振器',
+				'XTAL': '晶体振荡器',
+				'OSC': '有源晶振',
+
+				'D': '二极管',
+				'ZD': '稳压二极管',
+				'LED': '发光二极管',
+				'TVS': '瞬态抑制二极管',
+				'ESD': 'ESD保护二极管/静电保护管',
+				'SCH': '肖特基二极管',
+				'FRD': '快恢复二极管',
+				'PD': '光电二极管',
+
+				'Q': '三极管/场效应管',
+				'MOS': '场效应管',
+				'BJT': '双极型三极管',
+				'V': '晶闸管/可控硅',
+				'SCR': '单向可控硅',
+				'TRIAC': '双向可控硅',
+
+				'U': '集成电路/芯片',
+				'IC': '集成电路',
+				'MCU': '微控制器',
+				'DSP': '数字信号处理器',
+				'FPGA': '现场可编程门阵列',
+				'ROM': '只读存储器',
+				'RAM': '随机存储器',
+				'FLASH': '闪存芯片',
+
+				'J': '排针/连接器/插座',
+				'JP': '跳线帽/跳线座',
+				'PIN': '插针/单针连接器',
+				'CON': '连接器',
+				'DB': 'DB型连接器',
+				'USB': 'USB连接器',
+				'HDMI': 'HDMI连接器',
+				'RJ': '网络接口/电话接口',
+				'DC': '直流电源接口',
+				'AC': '交流电源接口',
+
+				'F': '保险丝',
+				'FUSE': '保险丝',
+				'TF': '温度保险丝',
+				'PTC': '自恢复保险丝',
+				'NTC': '负温度系数热敏电阻',
+				'MOV': '压敏电阻',
+
+				'T': '变压器',
+				'T1': '电源变压器',
+				'PT': '脉冲变压器',
+				'CT': '电流互感器',
+				'VT': '电压互感器',
+				'K': '继电器',
+				'RELAY': '继电器',
+				'SW': '开关',
+				'KEY': '按键/轻触开关',
+				'KBD': '键盘接口/按键阵列',
+				'H': '蜂鸣器/指示灯',
+				'BUZ': '蜂鸣器',
+				'SPEAKER': '喇叭/扬声器',
+				'MIC': '麦克风/拾音器',
+				'LCD': '液晶显示屏',
+				'OLED': '有机发光显示屏',
+
+				'TP': '测试点',
+				'TEST': '测试点',
+				'GND': '接地端/地线',
+				'VCC': '电源正极',
+				'VDD': '芯片电源正极',
+				'VEE': '负电源端',
+				'VSS': '芯片地/电源负极',
+				'NC': '空脚/未连接引脚',
+				'SCREW': '螺丝钉',
+				'PAD': '焊盘',
+				'MARK': '丝印标记/定位标记',
+			};
+
+			// 全局变量
+			let allComponentData = [];
+			let tableIns = null;
+
+			// 获取器件类型
+			function getcomponentType(params) {
+				//去掉文字中的数字
+				const textWithoutNumbers = params.replace(/[0-9]/g, '');
+				return componentTypeMap[textWithoutNumbers] || '未知类型';
+			}
+
+			// 4. 获取指定图层器件
+			async function getLayerComponents(layerId) {
+				try {
+					const layerData = await eda.pcb_PrimitiveComponent.getAll(layerId, false);
+					return layerData.map((component) => ({
+						...component,
+						layerName: layerId === EPCB_LayerId.TOP ? '顶层' : '底层',
+					}));
+				} catch (err) {
+					console.error(`获取${layerId === EPCB_LayerId.TOP ? '顶层' : '底层'}数据失败：`, err);
+					return [];
+				}
+			}
+
+			// 5. 加载所有图层数据
+			async function loadAllComponents() {
+				try {
+					if (!window.eda || !eda.pcb_PrimitiveComponent) {
+						document.getElementById('loading').innerText = '错误：未检测到EDA环境，无法获取器件数据！';
+						return;
+					}
+
+					document.getElementById('loading').innerText = '正在加载顶层和底层器件数据...';
+					const [topData, bottomData] = await Promise.all([getLayerComponents(EPCB_LayerId.TOP), getLayerComponents(EPCB_LayerId.BOTTOM)]);
+					console.log('数据加载完成：', topData, bottomData);
+					allComponentData = [...topData, ...bottomData];
+					const totalCount = allComponentData.length;
+					console.log(`✅ 加载完成：顶层${topData.length}个，底层${bottomData.length}个，总计${totalCount}个器件`);
+
+					renderTable(allComponentData);
+				} catch (error) {
+					document.getElementById('loading').innerText = `加载失败：${error.message}`;
+					console.error('❌ 数据加载失败：', error);
+				}
+			}
+
+			// 渲染表格
+			function renderTable(data) {
+				const tableData = data.map((component) => {
+					const componentType = getcomponentType(component.designator);
+					return {
+						primitiveId: component.primitiveId || '未知ID', // 唯一ID
+						Designator: component.designator || '未知位号', // 位号
+						componentType: componentType, // 器件类型
+						Layer: component.layerName || '未知图层', // 图层
+						value: component.otherProperty?.Value || component.otherProperty?.Device || '-', // 值
+						Manufacturer: component.manufacturer || '-', // 厂商
+						ManufacturerId: component.manufacturerId || '-', // 厂商ID
+					};
+				});
+
+				layui.use(['table', 'form'], function () {
+					var table = layui.table;
+					var form = layui.form;
+
+					document.getElementById('loading').style.display = 'none';
+
+					if (tableIns) {
+						tableIns.reload({ data: tableData });
+					} else {
+						tableIns = table.render({
+							elem: '#ID-table-demo-templet',
+							data: tableData,
+							page: true,
+							limit: 100,
+							limits: [10, 20, 50, 100],
+							height: '620px',
+							skin: 'line',
+							cols: [
+								[
+									{ type: 'checkbox', fixed: 'left' },
+									{ field: 'primitiveId', fixed: 'left', width: 80, title: 'ID', sort: true },
+									{ field: 'Designator', fixed: 'left', width: 80, title: '位号', sort: true },
+									{ field: 'componentType', width: 120, title: '器件类型', sort: true },
+									{ field: 'Layer', width: 100, title: '图层', sort: true },
+									{ field: 'value', width: 112, title: '参数值', sort: true },
+									{ field: 'Manufacturer', width: 120, title: '制造商', sort: true },
+									{ field: 'ManufacturerId', width: 120, title: '制造商编号', sort: true },
+								],
+							],
+							text: {
+								none: '暂无器件数据',
+							},
+						});
+					}
+				});
+			}
+
+			function selectCheckedComponents() {
+				eda.pcb_SelectControl.clearSelected();
+				layui.use(['table', 'layer'], function (table, layer) {
+					const checkStatus = table.checkStatus('ID-table-demo-templet');
+					const selectedData = checkStatus.data;
+
+					if (selectedData.length === 0) {
+						layer.msg('请先勾选需要选择的元器件！', { icon: 2, time: 2000 });
+						return;
+					}
+
+					if (!window.eda || !eda.pcb_SelectControl || !eda.pcb_SelectControl.doSelectPrimitives) {
+						layer.msg('EDA选择API未加载完成，请检查环境！', { icon: 2, time: 3000 });
+						return;
+					}
+
+					try {
+						selectedData.forEach((item, index) => {
+							if (item.primitiveId && item.primitiveId !== '未知ID') {
+								const result = eda.pcb_SelectControl.doSelectPrimitives(item.primitiveId);
+								console.log(`已选中元器件：ID=${item.primitiveId}，位号=${item.Designator},结果=${result}`);
+							} else {
+								console.warn(`跳过无效ID的元器件：位号=${item.Designator}`);
+							}
+						});
+
+						layer.msg(`成功选中 ${selectedData.length} 个元器件！`, { icon: 1, time: 1000 });
+						eda.sys_Timer.setTimeoutTimer(
+							'1',
+							1000,
+							() => {
+								eda.sys_IFrame.closeIFrame();
+							},
+							undefined,
+						);
+					} catch (error) {
+						console.error('选中元器件失败：', error);
+						layer.msg(`选中失败：${error.message}`, { icon: 2, time: 3000 });
+					}
+				});
+			}
+
+			// 7. 绑定筛选按钮事件
+			function bindButtonEvents() {
+				layui.use(['jquery'], function ($) {
+					// 确定选择按钮
+					$('#btn-OK').click(selectCheckedComponents);
+
+					// 全部图层
+					$('#btn-all').click(function () {
+						renderTable(allComponentData);
+					});
+
+					// 仅顶层
+					$('#btn-top').click(function () {
+						const topData = allComponentData.filter((item) => item.layerName === '顶层');
+						renderTable(topData);
+					});
+
+					// 仅底层
+					$('#btn-bottom').click(function () {
+						const bottomData = allComponentData.filter((item) => item.layerName === '底层');
+						renderTable(bottomData);
+					});
+				});
+			}
+
+			// 页面加载执行
+			window.onload = function () {
+				setTimeout(() => {
+					loadAllComponents();
+					bindButtonEvents();
+				}, 500);
+			};
+		</script>
+	</body>
+</html>

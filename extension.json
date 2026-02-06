@@ -1,0 +1,64 @@
+{
+	"name": "batch-picking-tool",
+	"uuid": "a734f963ef114203bb8875b500721462",
+	"displayName": "Batch Picking tool",
+	"description": "让你零件选择、复制、粘贴，更丰富更方便",
+	"version": "1.0.0",
+	"publisher": "内边 <2280support@lceda.cn>",
+	"engines": {
+		"eda": "^2.3.0"
+	},
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "extension-store",
+		"url": ""
+	},
+	"categories": "Other",
+	"keywords": ["Schematic", "PCB", "Other"],
+	"images": {
+		"logo": "./images/logo.png"
+	},
+	"homepage": "https://pro.lceda.cn",
+	"bugs": "https://lceda.cn/page/feedback?originPage=other",
+	"activationEvents": {},
+	"entry": "./dist/index",
+	"dependentExtensions": {},
+	"headerMenus": {
+		"sch": [
+			{
+				"id": "SCH Edit",
+				"title": "Batch Picking tool",
+				"menuItems": [
+					{
+						"id": "Batch Picking tool",
+						"title": "Batch Picking tool",
+						"registerFn": "BPT_SCH"
+					},
+					{
+						"id": "About",
+						"title": "About...",
+						"registerFn": "about"
+					}
+				]
+			}
+		],
+		"pcb": [
+			{
+				"id": "PCB Edit",
+				"title": "Batch Picking tool",
+				"menuItems": [
+					{
+						"id": "Batch Picking tool",
+						"title": "Batch Picking tool",
+						"registerFn": "BPT_PCB"
+					},
+					{
+						"id": "About",
+						"title": "About...",
+						"registerFn": "about"
+					}
+				]
+			}
+		]
+	}
+}
