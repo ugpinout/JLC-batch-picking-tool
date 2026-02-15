@@ -7,24 +7,79 @@
 		<link href="/iframe/css/BPT_PCB.css" rel="stylesheet" />
 		<style>
 			@font-face {
-				font-family: 'layui-icon'; /* 固定字体名，和 Layui 保持一致 */
-				/* 关键：ttf 文件路径（根据实际文件位置调整） */
+				font-family: 'layui-icon';
 				src: url('/iframe/font/iconfont.ttf') format('truetype');
 				font-weight: normal;
 				font-style: normal;
 			}
-
-			/* 2. Layui 图标核心样式（必须） */
 			.layui-icon {
 				font-family: 'layui-icon' !important;
-				font-size: 16px; /* 图标大小 */
+				font-size: 16px;
 				font-style: normal;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
+			/* 公式筛选区域样式 */
+			.formula-filter-box {
+				text-align: center;
+				padding: 5px;
+				background: #f8f9fa;
+				border-radius: 4px;
+				position: relative;
+			}
+			.formula-filter-box input {
+				width: 500px;
+				padding: 8px 15px;
+				border: 1px solid #e6e6e6;
+				border-radius: 4px;
+				outline: none;
+				font-size: 14px;
+			}
+			.formula-btn {
+				margin-left: 10px;
+				padding: 8px 15px;
+				background: #1e9fff;
+				color: white;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+			.formula-btn:hover {
+				background: #0e88d8;
+			}
+			/* 语法提示样式（默认隐藏） */
+			.formula-tips {
+				display: none;
+				position: absolute;
+				top: 50px;
+				right: calc(50% - 250px);
+				width: 500px;
+				padding: 10px;
+				background: white;
+				border: 1px solid #e6e6e6;
+				border-radius: 4px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+				font-size: 12px;
+				color: #666;
+				text-align: left;
+				z-index: 999;
+			}
+			/* 问号按钮样式 */
+			.tips-btn {
+				margin-left: 10px;
+				padding: 8px 12px;
+				background: #f0f0f0;
+				color: #666;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: bold;
+			}
 		</style>
 		<script src="/iframe/js/layui.js"></script>
-		<title>批量拾件工具 - PCB版（支持器件类型识别）</title>
+		<title>批量拾件工具 - PCB版（支持公式化筛选）</title>
 	</head>
 	<body>
 		<div class="container">
@@ -33,7 +88,6 @@
 					<button class="layui-btn layui-btn-sm" id="btn-OK">确定选择</button>
 				</div>
 				<div class="title">批量拾件工具 (PCB)</div>
-
 				<div class="margin-top-right">
 					<button class="layui-btn layui-btn-sm" id="btn-all">全部图层</button>
 					<button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-top">仅顶层</button>
@@ -41,6 +95,28 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- 公式化筛选区域（仅保留公式搜索） -->
+		<div class="formula-filter-box">
+			<input
+				type="text"
+				id="formula-input"
+				placeholder="公式筛选：如 图层=[顶层]&&器件类型=[电阻] （支持&&与/||或/[]多值/模糊匹配）"
+				autocomplete="off"
+			/>
+			<button class="formula-btn" id="formula-submit">执行公式筛选</button>
+			<button class="formula-btn" style="background: #666" id="formula-reset">重置公式</button>
+			<button class="tips-btn" id="formula-tips-btn">？</button>
+			<!-- 语法提示（默认隐藏） -->
+			<div class="formula-tips" id="formula-tips">
+				语法说明：<br />
+				1. 字段支持：位号/器件类型/图层/参数值/制造商/制造商编号<br />
+				2. 运算符：&&(与)、||(或)（优先级：&& > ||）<br />
+				3. 多值匹配：[值1,值2,...]（匹配任意一个值）<br />
+				4. 示例：图层=[顶层]&&器件类型=[电阻]、位号=[R,C]||参数值=[100nF]
+			</div>
+		</div>
+
 		<div class="tables">
 			<div id="loading" style="text-align: center; padding: 20px; font-size: 14px; color: #666">正在加载PCB器件数据...</div>
 			<table class="layui-hide" id="ID-table-demo-templet"></table>
@@ -66,98 +142,69 @@
 				'Y': '陶瓷谐振器',
 				'XTAL': '晶体振荡器',
 				'OSC': '有源晶振',
-
 				'D': '二极管',
 				'ZD': '稳压二极管',
 				'LED': '发光二极管',
 				'TVS': '瞬态抑制二极管',
 				'ESD': 'ESD保护二极管/静电保护管',
-				'SCH': '肖特基二极管',
-				'FRD': '快恢复二极管',
-				'PD': '光电二极管',
-
 				'Q': '三极管/场效应管',
 				'MOS': '场效应管',
 				'BJT': '双极型三极管',
-				'V': '晶闸管/可控硅',
-				'SCR': '单向可控硅',
-				'TRIAC': '双向可控硅',
-
 				'U': '集成电路/芯片',
 				'IC': '集成电路',
 				'MCU': '微控制器',
 				'DSP': '数字信号处理器',
-				'FPGA': '现场可编程门阵列',
-				'ROM': '只读存储器',
-				'RAM': '随机存储器',
-				'FLASH': '闪存芯片',
-
 				'J': '排针/连接器/插座',
 				'JP': '跳线帽/跳线座',
 				'PIN': '插针/单针连接器',
-				'CON': '连接器',
-				'DB': 'DB型连接器',
-				'USB': 'USB连接器',
-				'HDMI': 'HDMI连接器',
-				'RJ': '网络接口/电话接口',
-				'DC': '直流电源接口',
-				'AC': '交流电源接口',
-
 				'F': '保险丝',
 				'FUSE': '保险丝',
 				'TF': '温度保险丝',
 				'PTC': '自恢复保险丝',
-				'NTC': '负温度系数热敏电阻',
-				'MOV': '压敏电阻',
-
 				'T': '变压器',
-				'T1': '电源变压器',
-				'PT': '脉冲变压器',
-				'CT': '电流互感器',
-				'VT': '电压互感器',
 				'K': '继电器',
-				'RELAY': '继电器',
 				'SW': '开关',
 				'KEY': '按键/轻触开关',
-				'KBD': '键盘接口/按键阵列',
-				'H': '蜂鸣器/指示灯',
-				'BUZ': '蜂鸣器',
-				'SPEAKER': '喇叭/扬声器',
-				'MIC': '麦克风/拾音器',
-				'LCD': '液晶显示屏',
-				'OLED': '有机发光显示屏',
-
 				'TP': '测试点',
-				'TEST': '测试点',
 				'GND': '接地端/地线',
 				'VCC': '电源正极',
-				'VDD': '芯片电源正极',
-				'VEE': '负电源端',
-				'VSS': '芯片地/电源负极',
 				'NC': '空脚/未连接引脚',
-				'SCREW': '螺丝钉',
-				'PAD': '焊盘',
-				'MARK': '丝印标记/定位标记',
 			};
 
 			// 全局变量
-			let allComponentData = [];
+			let allComponentData = []; // 原始全量数据
 			let tableIns = null;
+			let currentLayerFilter = 'all'; // 图层筛选状态
+
+			// 【修复核心】字段映射：新增「器件类型」别名，匹配用户输入的字段名
+			const fieldMap = {
+				'位号': 'designator',
+				'器件类型': 'componentType', // 关键修复：字段名改为「器件类型」（用户实际输入的）
+				'图层': 'layerName',
+				'参数值': 'value',
+				'制造商': 'manufacturer',
+				'制造商编号': 'manufacturerId',
+				'类型': 'componentType', // 保留原「类型」别名，兼容旧公式
+			};
 
 			// 获取器件类型
 			function getcomponentType(params) {
-				//去掉文字中的数字
 				const textWithoutNumbers = params.replace(/[0-9]/g, '');
 				return componentTypeMap[textWithoutNumbers] || '未知类型';
 			}
 
-			// 4. 获取指定图层器件
+			// 获取指定图层器件
 			async function getLayerComponents(layerId) {
 				try {
 					const layerData = await eda.pcb_PrimitiveComponent.getAll(layerId, false);
 					return layerData.map((component) => ({
 						...component,
 						layerName: layerId === EPCB_LayerId.TOP ? '顶层' : '底层',
+						// 预格式化字段（方便公式筛选）
+						componentType: getcomponentType(component.designator),
+						value: component.otherProperty?.Value || component.otherProperty?.Device || '-',
+						manufacturer: component.manufacturer || '-',
+						manufacturerId: component.manufacturerId || '-',
 					}));
 				} catch (err) {
 					console.error(`获取${layerId === EPCB_LayerId.TOP ? '顶层' : '底层'}数据失败：`, err);
@@ -165,7 +212,7 @@
 				}
 			}
 
-			// 5. 加载所有图层数据
+			// 加载所有图层数据
 			async function loadAllComponents() {
 				try {
 					if (!window.eda || !eda.pcb_PrimitiveComponent) {
@@ -175,10 +222,8 @@
 
 					document.getElementById('loading').innerText = '正在加载顶层和底层器件数据...';
 					const [topData, bottomData] = await Promise.all([getLayerComponents(EPCB_LayerId.TOP), getLayerComponents(EPCB_LayerId.BOTTOM)]);
-					console.log('数据加载完成：', topData, bottomData);
 					allComponentData = [...topData, ...bottomData];
-					const totalCount = allComponentData.length;
-					console.log(`✅ 加载完成：顶层${topData.length}个，底层${bottomData.length}个，总计${totalCount}个器件`);
+					console.log(`✅ 加载完成：顶层${topData.length}个，底层${bottomData.length}个，总计${allComponentData.length}个器件`);
 
 					renderTable(allComponentData);
 				} catch (error) {
@@ -187,25 +232,85 @@
 				}
 			}
 
+			// ========== 核心：公式解析与筛选引擎（修复匹配逻辑） ==========
+			/**
+			 * 解析公式并执行筛选
+			 * @param {string} formula 筛选公式（如：图层=[顶层]&&器件类型=[电阻]）
+			 * @returns {Array} 筛选后的结果
+			 */
+			function parseAndFilterByFormula(formula) {
+				if (!formula || formula.trim() === '') return [...allComponentData];
+
+				try {
+					// 1. 预处理公式：去除空格、统一小写（匹配不区分大小写）
+					const cleanFormula = formula.trim().replace(/\s+/g, '').toLowerCase();
+
+					// 2. 拆分公式为「或」分组（先按||拆分，因为&&优先级更高）
+					const orGroups = cleanFormula.split('||');
+
+					// 3. 遍历每个「或」分组，只要有一个分组满足就匹配
+					const result = allComponentData.filter((item) => {
+						// 预转换item字段为小写（方便匹配）
+						const itemLower = {};
+						Object.keys(fieldMap).forEach((field) => {
+							const realField = fieldMap[field];
+							itemLower[realField] = (item[realField] || '').toString().toLowerCase();
+						});
+
+						// 检查是否满足任意一个「或」分组
+						return orGroups.some((orGroup) => {
+							// 拆分「与」条件
+							const andConditions = orGroup.split('&&');
+							// 所有「与」条件必须都满足
+							return andConditions.every((condition) => {
+								// 解析单个条件：如 图层=[顶层]、器件类型=[电阻]
+								const match = condition.match(/^([^=]+)=\[(.*)\]$/);
+								if (!match) return false; // 语法错误则不匹配
+
+								const [, fieldName, valuesStr] = match;
+								// 【修复】匹配字段名时忽略大小写，兼容「器件类型」/「器件类型」等输入
+								const targetFieldKey = Object.keys(fieldMap).find((key) => key.toLowerCase() === fieldName);
+								if (!targetFieldKey) return false;
+								const targetField = fieldMap[targetFieldKey];
+
+								// 拆分多值（如 顶层,底层）
+								const targetValues = valuesStr
+									.split(',')
+									.map((v) => v.trim())
+									.filter((v) => v);
+								if (targetValues.length === 0) return false;
+
+								// 模糊匹配：只要item的字段包含任意一个目标值就满足
+								const itemValue = itemLower[targetField];
+								return targetValues.some((val) => itemValue.includes(val));
+							});
+						});
+					});
+
+					return result;
+				} catch (error) {
+					layui.use('layer', function (layer) {
+						layer.msg(`公式解析失败：${error.message}，请检查语法！`, { icon: 2, time: 3000 });
+					});
+					console.error('公式解析错误：', error);
+					return [...allComponentData];
+				}
+			}
+
 			// 渲染表格
 			function renderTable(data) {
-				const tableData = data.map((component) => {
-					const componentType = getcomponentType(component.designator);
-					return {
-						primitiveId: component.primitiveId || '未知ID', // 唯一ID
-						Designator: component.designator || '未知位号', // 位号
-						componentType: componentType, // 器件类型
-						Layer: component.layerName || '未知图层', // 图层
-						value: component.otherProperty?.Value || component.otherProperty?.Device || '-', // 值
-						Manufacturer: component.manufacturer || '-', // 厂商
-						ManufacturerId: component.manufacturerId || '-', // 厂商ID
-					};
-				});
+				const tableData = data.map((component) => ({
+					primitiveId: component.primitiveId || '未知ID',
+					Designator: component.designator || '未知位号',
+					componentType: component.componentType || '未知类型',
+					Layer: component.layerName || '未知图层',
+					value: component.value || '-',
+					Manufacturer: component.manufacturer || '-',
+					ManufacturerId: component.manufacturerId || '-',
+				}));
 
 				layui.use(['table', 'form'], function () {
 					var table = layui.table;
-					var form = layui.form;
-
 					document.getElementById('loading').style.display = 'none';
 
 					if (tableIns) {
@@ -217,13 +322,13 @@
 							page: true,
 							limit: 100,
 							limits: [10, 20, 50, 100],
-							height: '620px',
+							height: '585px',
 							skin: 'line',
 							cols: [
 								[
 									{ type: 'checkbox', fixed: 'left' },
-									{ field: 'primitiveId', fixed: 'left', width: 80, title: 'ID', sort: true },
-									{ field: 'Designator', fixed: 'left', width: 80, title: '位号', sort: true },
+									{ field: 'primitiveId', fixed: 'left', width: 80, title: '图元ID', sort: true },
+									{ field: 'Designator', fixed: 'left', width: 80, title: '器件位号', sort: true },
 									{ field: 'componentType', width: 120, title: '器件类型', sort: true },
 									{ field: 'Layer', width: 100, title: '图层', sort: true },
 									{ field: 'value', width: 112, title: '参数值', sort: true },
@@ -231,14 +336,13 @@
 									{ field: 'ManufacturerId', width: 120, title: '制造商编号', sort: true },
 								],
 							],
-							text: {
-								none: '暂无器件数据',
-							},
+							text: { none: '暂无匹配的器件数据' },
 						});
 					}
 				});
 			}
 
+			// 选中勾选的器件
 			function selectCheckedComponents() {
 				eda.pcb_SelectControl.clearSelected();
 				layui.use(['table', 'layer'], function (table, layer) {
@@ -256,24 +360,15 @@
 					}
 
 					try {
-						selectedData.forEach((item, index) => {
+						selectedData.forEach((item) => {
 							if (item.primitiveId && item.primitiveId !== '未知ID') {
-								const result = eda.pcb_SelectControl.doSelectPrimitives(item.primitiveId);
-								console.log(`已选中元器件：ID=${item.primitiveId}，位号=${item.Designator},结果=${result}`);
-							} else {
-								console.warn(`跳过无效ID的元器件：位号=${item.Designator}`);
+								eda.pcb_SelectControl.doSelectPrimitives(item.primitiveId);
+								console.log(`已选中元器件：ID=${item.primitiveId}，位号=${item.Designator}`);
 							}
 						});
 
 						layer.msg(`成功选中 ${selectedData.length} 个元器件！`, { icon: 1, time: 1000 });
-						eda.sys_Timer.setTimeoutTimer(
-							'1',
-							1000,
-							() => {
-								eda.sys_IFrame.closeIFrame();
-							},
-							undefined,
-						);
+						eda.sys_Timer.setTimeoutTimer('1', 1000, () => eda.sys_IFrame.closeIFrame());
 					} catch (error) {
 						console.error('选中元器件失败：', error);
 						layer.msg(`选中失败：${error.message}`, { icon: 2, time: 3000 });
@@ -281,32 +376,68 @@
 				});
 			}
 
-			// 7. 绑定筛选按钮事件
+			// 绑定所有事件
 			function bindButtonEvents() {
-				layui.use(['jquery'], function ($) {
-					// 确定选择按钮
+				layui.use(['jquery', 'layer'], function ($, layer) {
+					// 基础按钮事件
 					$('#btn-OK').click(selectCheckedComponents);
-
-					// 全部图层
-					$('#btn-all').click(function () {
+					$('#btn-all').click(() => {
+						currentLayerFilter = 'all';
 						renderTable(allComponentData);
 					});
-
-					// 仅顶层
-					$('#btn-top').click(function () {
+					$('#btn-top').click(() => {
+						currentLayerFilter = 'top';
 						const topData = allComponentData.filter((item) => item.layerName === '顶层');
 						renderTable(topData);
 					});
-
-					// 仅底层
-					$('#btn-bottom').click(function () {
+					$('#btn-bottom').click(() => {
+						currentLayerFilter = 'bottom';
 						const bottomData = allComponentData.filter((item) => item.layerName === '底层');
 						renderTable(bottomData);
+					});
+
+					// 公式筛选事件
+					$('#formula-submit').click(() => {
+						const formula = $('#formula-input').val().trim();
+						if (!formula) {
+							layer.msg('请输入筛选公式！', { icon: 0, time: 2000 });
+							return;
+						}
+						const result = parseAndFilterByFormula(formula);
+						renderTable(result);
+						layer.msg(`公式筛选完成，匹配到 ${result.length} 个器件`, { icon: 1, time: 2000 });
+					});
+
+					// 公式重置
+					$('#formula-reset').click(() => {
+						$('#formula-input').val('');
+						renderTable(allComponentData);
+						layer.msg('公式筛选已重置', { icon: 0, time: 1500 });
+					});
+
+					// 公式输入框回车触发
+					$('#formula-input').on('keydown', function (e) {
+						if (e.keyCode === 13) $('#formula-submit').click();
+					});
+
+					// ？按钮：显示/隐藏语法提示
+					let tipsShow = false;
+					$('#formula-tips-btn').click(() => {
+						tipsShow = !tipsShow;
+						$('#formula-tips').toggle(tipsShow);
+					});
+
+					// 点击页面其他区域隐藏提示
+					$(document).click(function (e) {
+						if (!$(e.target).closest('.formula-filter-box').length) {
+							tipsShow = false;
+							$('#formula-tips').hide();
+						}
 					});
 				});
 			}
 
-			// 页面加载执行
+			// 页面加载
 			window.onload = function () {
 				setTimeout(() => {
 					loadAllComponents();

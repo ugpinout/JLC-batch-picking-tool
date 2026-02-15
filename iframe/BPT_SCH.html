@@ -16,14 +16,71 @@
 			/* Layui 图标核心样式（必须） */
 			.layui-icon {
 				font-family: 'layui-icon' !important;
-				font-size: 16px; /* 图标大小 */
+				font-size: 16px;
 				font-style: normal;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
+
+			/* 公式筛选框样式 */
+			.formula-filter-box {
+				text-align: center;
+				padding: 5px;
+				background: #f8f9fa;
+				border-radius: 4px;
+			}
+			.formula-filter-box input {
+				width: 500px;
+				padding: 8px 15px;
+				border: 1px solid #e6e6e6;
+				border-radius: 4px;
+				outline: none;
+				font-size: 14px;
+			}
+			.formula-btn {
+				margin-left: 10px;
+				padding: 8px 15px;
+				background: #1e9fff;
+				color: white;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+			.formula-btn:hover {
+				background: #0e88d8;
+			}
+			.tips-btn {
+				margin-left: 10px;
+				padding: 8px 12px;
+				background: #f0f0f0;
+				color: #666;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: bold;
+			}
+			/* 语法提示样式（默认隐藏） */
+			.formula-tips {
+				display: none;
+				position: absolute;
+				top: 120px;
+				left: calc(50% - 250px);
+				width: 500px;
+				padding: 10px;
+				background: white;
+				border: 1px solid #e6e6e6;
+				border-radius: 4px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+				font-size: 12px;
+				color: #666;
+				text-align: left;
+				z-index: 999;
+			}
 		</style>
 		<script src="/iframe/js/layui.js"></script>
-		<title>批量拾件工具 - 原理图版（支持器件类型识别）</title>
+		<title>批量拾件工具 - 原理图版（支持公式化筛选）</title>
 	</head>
 	<body>
 		<div class="container">
@@ -32,19 +89,40 @@
 					<button class="layui-btn layui-btn-sm" id="btn-OK">确定选择</button>
 				</div>
 				<div class="title">批量拾件工具 (原理图)</div>
-
 				<div class="margin-top-right">
 					<button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-refresh">刷新数据</button>
 				</div>
 			</div>
 		</div>
+
+		<!-- 公式化筛选区域（更新提示文案） -->
+		<div class="formula-filter-box">
+			<input
+				type="text"
+				id="formula-input"
+				placeholder="公式筛选：如 器件位号=[R,C]&&器件类型=[电阻]||参数值=[10] （支持&&与/||或/[]多值/模糊匹配，大小写无感）"
+				autocomplete="off"
+			/>
+			<button class="formula-btn" id="formula-submit">执行公式筛选</button>
+			<button class="formula-btn" style="background: #666" id="formula-reset">重置公式</button>
+			<button class="tips-btn" id="formula-tips-btn">？</button>
+			<!-- 语法提示（仅保留可用字段，标注大小写无感） -->
+			<div class="formula-tips" id="formula-tips">
+				语法说明：<br />
+				1. 字段支持：器件位号/器件类型/参数值/供应商（大小写无感）<br />
+				2. 运算符：&&(与)、||(或)（优先级：&& > ||）<br />
+				3. 多值匹配：[值1,值2,...]（匹配任意一个值）<br />
+				4. 示例：器件位号=[r,c]&&器件类型=[电阻]、参数值=[10]||供应商=[立创]
+			</div>
+		</div>
+
 		<div class="tables">
 			<div id="loading" style="text-align: center; padding: 20px; font-size: 14px; color: #666">正在加载原理图器件数据...</div>
 			<table class="layui-hide" id="ID-table-demo-templet"></table>
 		</div>
 
 		<script>
-			// 器件类型映射表（适配原理图器件命名规范）
+			// 器件类型映射表（保留核心映射）
 			const componentTypeMap = {
 				'R': '电阻',
 				'RN': '排阻',
@@ -64,7 +142,6 @@
 				'Y': '陶瓷谐振器',
 				'XTAL': '晶体振荡器',
 				'OSC': '有源晶振',
-
 				'D': '二极管',
 				'ZD': '稳压二极管',
 				'LED': '发光二极管',
@@ -73,14 +150,12 @@
 				'SCH': '肖特基二极管',
 				'FRD': '快恢复二极管',
 				'PD': '光电二极管',
-
 				'Q': '三极管/场效应管',
 				'MOS': '场效应管',
 				'BJT': '双极型三极管',
 				'V': '晶闸管/可控硅',
 				'SCR': '单向可控硅',
 				'TRIAC': '双向可控硅',
-
 				'U': '集成电路/芯片',
 				'IC': '集成电路',
 				'MCU': '微控制器',
@@ -89,7 +164,6 @@
 				'ROM': '只读存储器',
 				'RAM': '随机存储器',
 				'FLASH': '闪存芯片',
-
 				'J': '排针/连接器/插座',
 				'JP': '跳线帽/跳线座',
 				'PIN': '插针/单针连接器',
@@ -100,14 +174,12 @@
 				'RJ': '网络接口/电话接口',
 				'DC': '直流电源接口',
 				'AC': '交流电源接口',
-
 				'F': '保险丝',
 				'FUSE': '保险丝',
 				'TF': '温度保险丝',
 				'PTC': '自恢复保险丝',
 				'NTC': '负温度系数热敏电阻',
 				'MOV': '压敏电阻',
-
 				'T': '变压器',
 				'T1': '电源变压器',
 				'PT': '脉冲变压器',
@@ -124,7 +196,6 @@
 				'MIC': '麦克风/拾音器',
 				'LCD': '液晶显示屏',
 				'OLED': '有机发光显示屏',
-
 				'TP': '测试点',
 				'TEST': '测试点',
 				'GND': '接地端/地线',
@@ -139,51 +210,71 @@
 				'SCREW': '螺丝钉',
 			};
 
-			// 提前构建大写键的映射表（优化性能，避免每次遍历）
+			// 构建双向大小写映射表（同时支持键和值的大小写匹配）
 			const componentTypeMapUpper = {};
+			const componentTypeNameMapLower = {}; // 器件类型名称的小写映射（如"电阻"→"电阻"）
 			for (const [key, value] of Object.entries(componentTypeMap)) {
+				// 位号前缀的大写映射（如R→电阻，r→电阻）
 				componentTypeMapUpper[key.toUpperCase()] = value;
+				// 器件类型名称的小写映射（如电阻→电阻，电阻→电阻）
+				componentTypeNameMapLower[value.toLowerCase()] = value;
 			}
 
 			// 全局变量
 			let allComponentData = [];
 			let tableIns = null;
 
-			// 获取器件类型（原理图适配版，忽略大小写）
+			// 公式筛选字段映射（仅保留可用字段）
+			const fieldMap = {
+				'器件位号': 'designator',
+				'器件类型': 'componentType',
+				'参数值': 'value',
+				'供应商': 'supplier',
+				'供应商编号': 'supplierId',
+				'图元ID': 'primitiveId',
+			};
+
+			// 获取器件类型（优化版：完全支持大小写无感）
 			function getComponentType(params) {
 				if (!params) return '未知类型';
-				// 1. 去掉位号中的数字、下划线、短横线
+				// 1. 移除数字、下划线、短横线
 				const textWithoutNumbers = params.replace(/[0-9_\-]/g, '');
-				// 2. 统一转为大写，实现忽略大小写匹配
+				// 2. 统一转为大写匹配位号前缀（如r→R，Rn→RN）
 				const targetKey = textWithoutNumbers.toUpperCase();
-				// 3. 从大写映射表中快速匹配
-				return componentTypeMapUpper[targetKey] || '未知类型';
+				// 3. 优先匹配位号前缀，匹配不到则尝试匹配类型名称（如输入"电阻"也能识别）
+				return componentTypeMapUpper[targetKey] || componentTypeNameMapLower[params.toLowerCase()] || '网络标签';
 			}
 
-			// 加载原理图器件数据（核心API适配）
+			// 加载原理图器件数据（移除无数据字段的处理）
 			async function loadSCHComponents() {
 				try {
-					// 原理图器件获取API：eda.sch_PrimitiveComponent.getAll()
 					if (!window.eda || !eda.sch_PrimitiveComponent) {
 						document.getElementById('loading').innerText = '错误：未检测到EDA环境，无法获取原理图器件数据！';
 						return;
 					}
 
 					document.getElementById('loading').innerText = '正在加载原理图器件数据...';
-					// 原理图无图层概念，直接获取所有器件
 					const schData = await eda.sch_PrimitiveComponent.getAll(false);
 					console.log('原理图数据加载完成：', schData);
 
-					allComponentData = schData.map((component) => ({
-						...component,
-						// 补充原理图特有属性
-						sheetName: component.sheetName || '主图', // 子图名称
-						netName: component.otherProperty?.NetName || '-', // 所属网络
-					}));
+					// 预格式化字段（仅保留核心字段）
+					allComponentData = schData.map((component) => {
+						const componentType = getComponentType(component.designator || component.componentType);
+						const paramValue = component.name || component.partId || '-'; // 参数值原始取值逻辑
+
+						return {
+							...component,
+							primitiveId: component.primitiveId || '未知ID',
+							designator: component.designator || component.net || '-',
+							componentType: componentType,
+							value: paramValue,
+							supplier: component.supplier || '-',
+							supplierId: component.supplierId || '-',
+						};
+					});
 
 					const totalCount = allComponentData.length;
 					console.log(`✅ 加载完成：总计${totalCount}个原理图器件`);
-
 					renderTable(allComponentData);
 				} catch (error) {
 					document.getElementById('loading').innerText = `加载失败：${error.message}`;
@@ -191,21 +282,16 @@
 				}
 			}
 
-			// 渲染表格（适配原理图数据字段）
+			// 渲染表格（仅显示核心可用列）
 			function renderTable(data) {
 				const tableData = data.map((component) => {
-					const componentType = getComponentType(component.designator || component.componentType);
 					return {
-						primitiveId: component.primitiveId || '未知ID', // 唯一图元ID（核心参数）
-						designator: component.designator || component.net, // 器件位号
-						componentType: componentType, // 器件类型
-						sheetName: component.sheet || '-', // 所在子图
-						netName: component.netName || '-', // 所属网络
-						value: component.otherProperty?.Value || component.otherProperty?.Device || '-', // 参数值
-						manufacturer: component.manufacturer || '-', // 厂商
-						manufacturerId: component.manufacturerId || '-', // 厂商ID
-						supplier: component.supplier || '-', // 供应商
-						supplierId: component.supplierId || '-', // 供应商ID
+						primitiveId: component.primitiveId || '未知ID',
+						designator: component.designator || component.net || '-',
+						componentType: getComponentType(component.designator || component.componentType),
+						value: component.name || component.partId || '-', // 参数值原始逻辑
+						supplier: component.supplier || '-',
+						supplierId: component.supplierId || '-',
 					};
 				});
 
@@ -224,7 +310,7 @@
 							page: true,
 							limit: 100,
 							limits: [10, 20, 50, 100],
-							height: '620px',
+							height: '585px',
 							skin: 'line',
 							cols: [
 								[
@@ -232,13 +318,9 @@
 									{ field: 'primitiveId', fixed: 'left', width: 100, title: '图元ID', sort: true },
 									{ field: 'designator', fixed: 'left', width: 100, title: '器件位号', sort: true },
 									{ field: 'componentType', width: 120, title: '器件类型', sort: true },
-									{ field: 'sheetName', width: 120, title: '所在子图', sort: true },
-									{ field: 'netName', width: 150, title: '所属网络', sort: true },
 									{ field: 'value', width: 120, title: '参数值', sort: true },
-									{ field: 'manufacturer', width: 120, title: '制造商', sort: true },
-									{ field: 'manufacturerId', width: 150, title: '制造商编号', sort: true },
-									{ field: 'supplier', width: 120, title: '供应商', sort: true },
-									{ field: 'supplierId', width: 150, title: '供应商编号', sort: true },
+									{ field: 'supplier', width: 120, title: '制造商', sort: true },
+									{ field: 'supplierId', width: 150, title: '制造商编号', sort: true },
 								],
 							],
 							text: {
@@ -249,6 +331,69 @@
 				});
 			}
 
+			// 公式解析与筛选核心函数（完全支持大小写无感匹配）
+			function parseAndFilterByFormula(formula) {
+				if (!formula || formula.trim() === '') return [...allComponentData];
+
+				try {
+					const cleanFormula = formula.trim().replace(/\s+/g, '').toLowerCase();
+					const orGroups = cleanFormula.split('||');
+
+					const result = allComponentData.filter((item) => {
+						// 预转换字段为小写（仅处理可用字段，确保匹配时大小写无感）
+						const itemLower = {
+							primitiveId: (item.primitiveId || '未知ID').toString().toLowerCase(),
+							designator: (item.designator || item.net || '-').toString().toLowerCase(),
+							componentType: getComponentType(item.designator || item.componentType).toLowerCase(),
+							value: (item.name || item.partId || '-').toString().toLowerCase(),
+							supplier: (item.supplier || '-').toString().toLowerCase(),
+							supplierId: (item.supplierId || '-').toString().toLowerCase(),
+						};
+
+						return orGroups.some((orGroup) => {
+							const andConditions = orGroup.split('&&');
+							return andConditions.every((condition) => {
+								const match = condition.match(/^([^=]+)=\[(.*)\]$/);
+								if (!match) return false;
+
+								const [, fieldName, valuesStr] = match;
+								// 字段名大小写无感匹配（如"器件类型"和"器件类型"都能匹配）
+								const targetFieldKey = Object.keys(fieldMap).find((key) => key.toLowerCase() === fieldName);
+								if (!targetFieldKey) return false;
+								const targetField = fieldMap[targetFieldKey];
+
+								// 筛选值大小写无感（如[电阻]和[电阻]都能匹配）
+								const targetValues = valuesStr
+									.split(',')
+									.map((v) => v.trim().toLowerCase())
+									.filter((v) => v);
+								if (targetValues.length === 0) return false;
+
+								// 优化数字匹配 + 大小写无感匹配
+								const itemValue = itemLower[targetField];
+								return targetValues.some((val) => {
+									if (!isNaN(Number(val))) {
+										const numberInItem = itemValue.replace(/[^\d.]/g, '');
+										return numberInItem.includes(val) || itemValue.includes(val);
+									}
+									// 普通文本完全大小写无感匹配
+									return itemValue.includes(val);
+								});
+							});
+						});
+					});
+
+					return result;
+				} catch (error) {
+					layui.use('layer', function (layer) {
+						layer.msg(`公式解析失败：${error.message}，请检查语法！`, { icon: 2, time: 3000 });
+					});
+					console.error('公式解析错误：', error);
+					return [...allComponentData];
+				}
+			}
+
+			// 选中勾选的器件
 			function selectCheckedComponents() {
 				eda.sch_SelectControl.clearSelected();
 				layui.use(['table', 'layer'], function (table, layer) {
@@ -266,12 +411,10 @@
 					}
 
 					try {
-						selectedData.forEach((item, index) => {
+						selectedData.forEach((item) => {
 							if (item.primitiveId && item.primitiveId !== '未知ID') {
 								eda.sch_SelectControl.doSelectPrimitives(item.primitiveId);
 								console.log(`已选中原理图器件：ID=${item.primitiveId}，位号=${item.designator}`);
-							} else {
-								console.warn(`跳过无效ID的原理图器件：位号=${item.designator}`);
 							}
 						});
 
@@ -291,20 +434,60 @@
 				});
 			}
 
+			// 绑定按钮事件
 			function bindButtonEvents() {
-				layui.use(['jquery'], function ($) {
+				layui.use(['jquery', 'layer'], function ($, layer) {
+					// 原有按钮事件
 					$('#btn-OK').click(selectCheckedComponents);
 					$('#btn-refresh').click(function () {
 						document.getElementById('loading').style.display = 'block';
 						document.getElementById('loading').innerText = '正在刷新原理图器件数据...';
 						setTimeout(loadSCHComponents, 300);
 					});
+
+					// 公式筛选事件
+					$('#formula-submit').click(() => {
+						const formula = $('#formula-input').val().trim();
+						if (!formula) {
+							layer.msg('请输入筛选公式！', { icon: 0, time: 2000 });
+							return;
+						}
+						const result = parseAndFilterByFormula(formula);
+						renderTable(result);
+						layer.msg(`公式筛选完成，匹配到 ${result.length} 个器件`, { icon: 1, time: 2000 });
+					});
+
+					// 公式重置
+					$('#formula-reset').click(() => {
+						$('#formula-input').val('');
+						renderTable(allComponentData);
+						layer.msg('公式筛选已重置', { icon: 0, time: 1500 });
+					});
+
+					// 回车触发筛选
+					$('#formula-input').on('keydown', function (e) {
+						if (e.keyCode === 13) $('#formula-submit').click();
+					});
+
+					// 语法提示显示/隐藏
+					let tipsShow = false;
+					$('#formula-tips-btn').click(() => {
+						tipsShow = !tipsShow;
+						$('#formula-tips').toggle(tipsShow);
+					});
+
+					// 点击其他区域隐藏提示
+					$(document).click(function (e) {
+						if (!$(e.target).closest('.formula-filter-box').length) {
+							tipsShow = false;
+							$('#formula-tips').hide();
+						}
+					});
 				});
 			}
 
 			// 页面加载执行
 			window.onload = function () {
-				// 延迟加载，确保EDA环境初始化完成
 				setTimeout(() => {
 					loadSCHComponents();
 					bindButtonEvents();
