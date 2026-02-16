@@ -1,7 +1,7 @@
 {
 	"name": "batch-picking-tool",
 	"uuid": "a734f963ef114203bb8875b500721462",
-	"displayName": "Batch Picking tool",
+	"displayName": "批量拾件工具",
 	"description": "让你零件选择、复制、粘贴，更丰富更方便",
 	"version": "1.0.0",
 	"publisher": "内边 <2280support@lceda.cn>",
@@ -27,11 +27,11 @@
 		"sch": [
 			{
 				"id": "SCH Edit",
-				"title": "Batch Picking tool",
+				"title": "批量拾件工具",
 				"menuItems": [
 					{
 						"id": "Batch Picking tool",
-						"title": "Batch Picking tool",
+						"title": "批量拾件工具",
 						"registerFn": "BPT_SCH"
 					},
 					{
@@ -45,11 +45,11 @@
 		"pcb": [
 			{
 				"id": "PCB Edit",
-				"title": "Batch Picking tool",
+				"title": "批量拾件工具",
 				"menuItems": [
 					{
 						"id": "Batch Picking tool",
-						"title": "Batch Picking tool",
+						"title": "批量拾件工具",
 						"registerFn": "BPT_PCB"
 					},
 					{
