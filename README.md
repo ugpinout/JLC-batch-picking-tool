@@ -89,21 +89,18 @@
 ## 问题反馈
 
 使用过程中遇到问题、bug，或有功能优化建议，可通过官方通道反馈：
-[嘉立创EDA官方反馈页面](https://lceda.cn/page/feedback?originPage=other)
+[嘉立创EDA官方反馈页面](https://github.com/ugpinout/JLC-batch-picking-tool/issues)
 
 ## 开发者信息
 
 - 发布者：内边
-- 联系邮箱：2280support@lceda.cn
-- 工具主页：[嘉立创EDA专业版](https://pro.lceda.cn)
+- 联系邮箱：2280711844@qq.com
 
 ## 致谢
 
-> 本扩展工具基于 [LCExtensions](https://github.com/lceda/LCExtensions) 框架开发，感谢 LCExtensions 团队提供的优秀基础开发框架，为工具的快速实现与稳定运行奠定了核心基础。
-
 > 本扩展工具的前端界面基于 [**layui**](https://layui.dev/) 框架进行开发，感谢 layui 团队提供的轻量、易用的前端解决方案。
 
-> 本扩展工具的README文档由 [**豆包AI**](https://www.doubao.com/) 倾情助攻，感谢豆包AI全程陪聊写文档，主打一个摸鱼搭子式高效输出😜。
+> 本扩展工具的README文档由 [**豆包AI**](https://www.doubao.com/) 倾情助攻，感谢豆包AI全程陪聊写文档，主打一个摸鱼搭子式高效输出。
 
 ## 开源许可
 

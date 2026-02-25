@@ -4,7 +4,7 @@
 	"displayName": "批量拾件工具",
 	"description": "让你零件选择、复制、粘贴，更丰富更方便",
 	"version": "1.0.0",
-	"publisher": "内边 <support@lceda.cn>",
+	"publisher": "内边",
 	"engines": {
 		"eda": "^2.3.0"
 	},
